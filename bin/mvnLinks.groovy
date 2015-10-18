@@ -1,6 +1,4 @@
 /**
-Port of mvnLinks.sh
-
 Create a project revision specific duplicate of the maven repository out of symlinks.
 
 Existing directories:
@@ -28,22 +26,29 @@ def String REPO_DIR = REPO_HOME + "/" + System.getProperty("mvn.repository.dir",
 def String PROJECT = args[0];
 def String PVERSION = args[1];
 
-def String PACKAGE_FIRST = "org"
-def String PACKAGE_SECOND = "kuali"
-
-def String REPO_FIRST_SECOND = REPO_DIR + "/" + PACKAGE_FIRST + "/" + PACKAGE_SECOND
-if (new File(REPO_FIRST_SECOND).isDirectory()) {
-    System.out.println(REPO_FIRST_SECOND + " is a directory, not in mvnLinks mode")
-    System.exit(1)
-}
-
-def String VERSION_REPO = REPO_HOME + "/" + PROJECT + "/m2/" + PVERSION
-
 // where the mvn REPO_DIR/project.path deliverables have been copied
 def String PROJECT_REPO = REPO_HOME + "/" + PROJECT
 
-if (PROJECT == null) {
-    System.out.println("Usage: <m2_repo_home> <project> <version> <package.1>...")
+// The dir that will be used as m2/repository for the project-version
+def String VERSION_REPO = ROJECT_REPO + "/m2/" + PVERSION
+
+if (args.length < 3) {
+    System.out.println("Usage: [-Dmvn.repo.home=/j/m2] [-Dmvn.repository.dir=r] <project> <version> <package.1>...")
+    System.exit(1)
+}
+
+def String PACKAGE_FIRST = "org"
+def String PACKAGE_SECOND = "kuali"
+
+
+// when setting up for in mvnLinks mode, it seemed the easier way to go was to make the repository
+// directory of the packages being linked to a file so if something goes not as expected there will
+// be an error about PACKAGE_FIRST/PACKAGE_SECOND not being a directory.  This means something is
+// trying to write to REPO_HOME/PACKAGE_FIRST/PACKAGE_SECOND.  We are expecting the path to be
+// PROJECT_REPO/PVERSION/PACKAGE_FIRST/PACKAGE_SECOND
+def String REPO_FIRST_SECOND = REPO_DIR + "/" + PACKAGE_FIRST + "/" + PACKAGE_SECOND
+if (new File(REPO_FIRST_SECOND).isDirectory()) {
+    System.out.println(REPO_FIRST_SECOND + " is a directory, not in mvnLinks mode")
     System.exit(1)
 }
 
