@@ -30,7 +30,7 @@ def String PVERSION = args[1];
 def String PROJECT_REPO = REPO_HOME + "/" + PROJECT
 
 // The dir that will be used as m2/repository for the project-version
-def String VERSION_REPO = ROJECT_REPO + "/m2/" + PVERSION
+def String VERSION_REPO = PROJECT_REPO + "/m2/" + PVERSION
 
 if (args.length < 3) {
     System.out.println("Usage: [-Dmvn.repo.home=/j/m2] [-Dmvn.repository.dir=r] <project> <version> <package.1>...")
@@ -112,5 +112,8 @@ if (! new File(enabledFile).exists()) {
 if (System.getProperty("MVN_UTIL_HOME") == null) {
     System.out.println("env MVN_UTIL_HOME not set settings xml will not be created")
 } else {
-    ("sed \"s|M2_REPO|" + VERSION_REPO + "|g\" " + System.getProperty("MVN_UTIL_HOME") + "/etc/settings.xml > ~/.m2/settings-" + PROJECT + "-" + PVERSION + ".xml").execute()    
+    def command = "sed \"s|M2_REPO|" + VERSION_REPO + "|g\" " + System.getProperty("MVN_UTIL_HOME") + "/etc/settings.xml > ~/.m2/settings-" + PROJECT + "-" + PVERSION + ".xml"
+    System.out.println(command)
+    def sedout = (command).execute().getText()
+    System.out.println(sedout)
 } 
