@@ -17,10 +17,13 @@ m2/project/m2/1111 -> m2/repository
 */
 
 // mvn default of REPO_HOME would be ~/.m2
-def String REPO_HOME = "/java/m3"
+def String REPO_HOME = System.getProperty("mvn.repo.home", "~/.m2")
+if (REPO_HOME.startsWith("~")) {
+    REPO_HOME = System.getProperty("user.home") + REPO_HOME.substring(1, REPO_HOME.length())
+}
 
 // mvn default of REPO_HOME would be ~/.m2/repository
-def String REPO_DIR = REPO_HOME + "/r"
+def String REPO_DIR = REPO_HOME + "/" + System.getProperty("mvn.repository.dir", "repository")
 
 def String PROJECT = args[0];
 def String PVERSION = args[1];
@@ -46,10 +49,10 @@ if (PROJECT == null) {
 
 System.out.println("Creating mvn Links for " + PVERSION)
 
-if (!new File(PROJECT_REPO).exists()) {
-    System.out.println(PROJECT_REPO + " doesn't exist skipping mvnLinks.sh")
-    System.exit(1)
-}
+//if (!new File(PROJECT_REPO).exists()) {
+//    System.out.println(PROJECT_REPO + " doesn't exist skipping mvnLinks.sh")
+//    System.exit(1)
+//}
 
 // recreate linked mvn repository for the passed in version
 System.out.println("creating " + VERSION_REPO)
@@ -97,7 +100,7 @@ def String enabledFile = REPO_DIR + "/" + PACKAGE_FIRST + "/" + PACKAGE_SECOND +
 if (! new File(enabledFile).exists()) {
     ("rm -rf " + REPO_DIR + "/" + PACKAGE_FIRST + "/" + PACKAGE_SECOND).execute()
     ("sudo touch " + REPO_DIR + "/" + PACKAGE_FIRST + "/" + PACKAGE_SECOND).execute()
-    ("sudo touch " + REPO_DIR + "/" + PACKAGE_FIRST + "/" + PACKAGE_SECOND.mvnLinks.enabled).execute()    
+    ("sudo touch " + REPO_DIR + "/" + PACKAGE_FIRST + "/" + PACKAGE_SECOND + ".mvnLinks.enabled").execute()    
 }
 
 
