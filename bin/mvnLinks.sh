@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Deprecated see mvnLinks.groovy
+#
+# Created for use with rice/kuali the package is hard coded to org.kuali. Update the first 4 exports to configure for your setup.  
+# 
 # Create a project revision specific duplicate of the maven repository out of symlinks.
 #
 # Existing directories:
@@ -15,7 +19,7 @@
 # m2/project/m2/1111 -> m2/repository
 
 # mvn default of REPO_HOME would be ~/.m2
-export REPO_HOME=/java/m3
+export REPO_HOME=/java/m2
 
 # mvn default of REPO_HOME would be ~/.m2/repository
 export REPO_DIR=$REPO_HOME/r
@@ -23,6 +27,12 @@ export REPO_DIR=$REPO_HOME/r
 # if repository/PACKAGE_FIRST/PACKAGE_SECOND is a directory, then assume we are not in mvnLinks mode
 export PACKAGE_FIRST=org
 export PACKAGE_SECOND=kuali
+
+# when setting up for in mvnLinks mode, it seemed the easier way to go was to make the repository
+# directory of the packages being linked to a file so if something goes not as expected there will
+# be an error about PACKAGE_FIRST/PACKAGE_SECOND not being a directory.  This means something is
+# trying to write to REPO_HOME/PACKAGE_FIRST/PACKAGE_SECOND.  We are expecting the path to be
+# PROJECT_REPO/PVERSION/PACKAGE_FIRST/PACKAGE_SECOND
 if [ -d "$REPO_DIR/$PACKAGE_FIRST/$PACKAGE_SECOND" ]; then
   echo "$REPO_DIR/$PACKAGE_FIRST/$PACKAGE_SECOND is a directory, not in mvnLinks mode"
   exit 1
@@ -69,7 +79,7 @@ done
 
 
 
-# create linked mvn org directory so we can control the kuali dir
+# create linked mvn org directory so we can control the project version dir
 # TODO multiple packages will require that all the same PACKAGE_FIRST
 # are done before any PACKAGE_SECOND are.
 echo "Creating mvn $PACKAGE_FIRST Links for $VERSION_REPO"
