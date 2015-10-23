@@ -4,7 +4,6 @@
 
 TODO:
 * Update groovy to generate settings-project-version.xml sans sed.
-* Support mutiple packages. 
+* Support multiple packages. 
 * Convert existing standalone repo to mvnLinks (give a list of packages).
 * Do above in a non destructive way so it can be run to move and link packages downloaded in a mvnLinks repo (i.e things in org if there is a link in the second part of the linked packages)
-* Port to groovy
