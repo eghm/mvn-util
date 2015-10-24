@@ -1,5 +1,5 @@
 /**
-Create a project revision specific duplicate of the maven repository out of symlinks.
+Symlink a localRepository project version duplicate of a maven repository.
 
 Existing directories:
 m2
