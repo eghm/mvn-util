@@ -1,17 +1,29 @@
 /**
 Symlink a localRepository project version duplicate of a maven repository.
 
-Existing directories:
-m2
-m2/repository       (m2/r)
-m2/project          (m2/p)
-m2/project/version1 (m2/p/1)
-m2/project/version2 (m2/p/2)
+-Dmvn.repo.home=/j/m2 -Dmvn.repository.dir=r project 1111 package.one
 
-Symlinks created:
-m2/project/m2/1111/org/kuali -> m2/project/1111/org/kuali
-m2/project/m2/1111/org -> m2/repository/org/
-m2/project/m2/1111 -> m2/repository
+Existing directories:
+/j/m2                    # aka ~/.m2
+/j/m2/r                  # aka ~/.m2/repository
+
+Created directories:
+/j/m2/project/version    # your project's maven deliverables are here, symlinked from the apporiate location under the next created directoy.
+/j/m2/project/m2/version # m2 for your project version's localRepository as defined in ~/.m2/settings-project-version.xml 
+
+Created symlinks:
+/j/m2/project/m2/1111/package/one -> /j/m2/project/1111/package/one
+/j/m2/project/m2/1111/package -> /j/m2/r/project/1111/package
+/j/m2/project/m2/1111 -> /j/m2/r
+
+//TODO:
+// handle packages longer than 2 directories
+// Update groovy to generate settings-project-version.xml sans sed.
+// Support multiple packages. 
+// Convert existing standalone repo to mvnLinks (give a list of packages).
+// Do above in a non destructive way so it can be run to move and link packages downloaded in a mvnLinks repo (i.e things in org if there is a link in the second part of the linked packages)
+// Property file
+// Proper object
 */
 
 // mvn default of REPO_HOME would be ~/.m2
@@ -33,12 +45,15 @@ def String PROJECT_REPO = REPO_HOME + "/" + PROJECT
 def String VERSION_REPO = PROJECT_REPO + "/m2/" + PVERSION
 
 if (args.length < 3) {
-    System.out.println("Usage: [-Dmvn.repo.home=/j/m2] [-Dmvn.repository.dir=r] <project> <version> <package.1>...")
+    System.out.println("Usage: [-Dmvn.repo.home=/j/m2] [-Dmvn.repository.dir=r] <project> <version> <package.1>")
     System.exit(1)
 }
 
-def String PACKAGE_FIRST = "org"
-def String PACKAGE_SECOND = "kuali"
+// often com, org, net
+def String PACKAGE_FIRST = args[2].substring(0, args[2].indexOf("."));
+
+// kuali, apache, etc
+def String PACKAGE_SECOND = args[2].substring(PACKAGE_FIRST.length() + 1, args[2].length());
 
 
 // when setting up for in mvnLinks mode, it seemed the easier way to go was to make the repository
