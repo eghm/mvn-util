@@ -4,8 +4,8 @@ Symlink a localRepository project version duplicate of a maven repository.
 -Dmvn.repo.home=/j/m2 -Dmvn.repository.dir=r project 1111 package.one
 
 Existing directories:
-/j/m2                    # aka ~/.m2
-/j/m2/r                  # aka ~/.m2/repository
+/j/m2 					 # aka ~/.m2
+/j/m2/r  				 # aka ~/.m2/repository
 
 Created directories:
 /j/m2/project/version    # your project's maven deliverables are here, symlinked from the apporiate location under the next created directoy.
@@ -15,15 +15,6 @@ Created symlinks:
 /j/m2/project/m2/1111/package/one -> /j/m2/project/1111/package/one
 /j/m2/project/m2/1111/package -> /j/m2/r/project/1111/package
 /j/m2/project/m2/1111 -> /j/m2/r
-
-//TODO:
-// handle packages longer than 2 directories
-// Update groovy to generate settings-project-version.xml sans sed.
-// Support multiple packages. 
-// Convert existing standalone repo to mvnLinks (give a list of packages).
-// Do above in a non destructive way so it can be run to move and link packages downloaded in a mvnLinks repo (i.e things in org if there is a link in the second part of the linked packages)
-// Property file
-// Proper object
 */
 
 // mvn default of REPO_HOME would be ~/.m2
@@ -44,8 +35,9 @@ def String PROJECT_REPO = REPO_HOME + "/" + PROJECT
 // The dir that will be used as m2/repository for the project-version
 def String VERSION_REPO = PROJECT_REPO + "/m2/" + PVERSION
 
+// Usage
 if (args.length < 3) {
-    System.out.println("Usage: [-Dmvn.repo.home=/j/m2] [-Dmvn.repository.dir=r] <project> <version> <package.1>")
+    System.out.println("Usage: [-Dmvn.repo.home=/j/m2] [-Dmvn.repository.dir=r] <project> <version> <package.one>")
     System.exit(1)
 }
 
@@ -54,6 +46,7 @@ def String PACKAGE_FIRST = args[2].substring(0, args[2].indexOf("."));
 
 // kuali, apache, etc
 def String PACKAGE_SECOND = args[2].substring(PACKAGE_FIRST.length() + 1, args[2].length());
+
 
 
 // when setting up for in mvnLinks mode, it seemed the easier way to go was to make the repository
@@ -74,12 +67,13 @@ System.out.println("Creating mvn Links for " + PVERSION)
 //    System.exit(1)
 //}
 
-// recreate linked mvn repository for the passed in version
+// recreate mvn repository VERSION_REPO
 System.out.println("creating " + VERSION_REPO)
 ("rm -rf " + VERSION_REPO).execute()
 ("mkdir -p " + VERSION_REPO).execute()
 ("touch " + VERSION_REPO + "/" + PROJECT + "." + PVERSION + ".version.repo").execute()
 
+// create linked repo for VERSION_REPO
 System.out.println("creating " + PROJECT_REPO + "/" + PVERSION)
 ("mkdir -p " + PROJECT_REPO + "/" + PVERSION).execute()
 ("touch " + PROJECT_REPO + "/" + PVERSION + "/" + PROJECT + "." + PVERSION + ".project.repo").execute()
@@ -91,12 +85,10 @@ new File(REPO_DIR).eachFile() { file->
 }  
 
 
-
-
-
-// create linked mvn org directory so we can control the kuali dir
-// TODO multiple packages will require that all the same PACKAGE_FIRST
-// are done before any PACKAGE_SECOND are.
+// For each parent of leaves (with the same parent) 
+// create linked mvn PACKAGE_FIRST directory so we can control the PACKAGE_SECOND dir
+// TODO multiple packages will require that all the same PACKAGE_FIRST are done before
+// any PACKAGE_SECOND are else PACKAGE_SECOND will be deleted by the next PACKAGE_SECOND
 System.out.println("Creating mvn " + PACKAGE_FIRST + " Links for " + VERSION_REPO)
 ("rm -rf " + VERSION_REPO + "/" + PACKAGE_FIRST).execute()
 ("mkdir " + VERSION_REPO + "/" + PACKAGE_FIRST).execute()
@@ -108,11 +100,11 @@ new File(REPO_DIR + "/" + PACKAGE_FIRST).eachFile() { file->
 }  
 
 // create a link for the PACKAGE_SECOND directory
+// create links for the leaves of this parent
 ("rm -rf " + VERSION_REPO + "/" + PACKAGE_FIRST + "/" + PACKAGE_SECOND).execute()
 def secondPackage = "ln -s " + PROJECT_REPO + "/" + PVERSION + " " + VERSION_REPO + "/" + PACKAGE_FIRST+ "/" + PACKAGE_SECOND
 System.out.println(secondPackage)
-(secondPackage).execute()  
-
+(secondPackage).execute()
 
 
 // make sure the repo PACKAGE_FIRST/PACKAGE_SECOND cannot be updated!
@@ -123,7 +115,7 @@ if (! new File(enabledFile).exists()) {
     ("sudo touch " + REPO_DIR + "/" + PACKAGE_FIRST + "/" + PACKAGE_SECOND + ".mvnLinks.enabled").execute()    
 }
 
-
+// settings.xml for VERSION_REPO
 if (System.getProperty("MVN_UTIL_HOME") == null) {
     System.out.println("env MVN_UTIL_HOME not set settings xml will not be created")
 } else {
