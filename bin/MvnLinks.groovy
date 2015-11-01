@@ -17,8 +17,6 @@ Created symlinks:
 /j/m2/project/m2/1111 -> /j/m2/r
 
 //TODO:
-// put commands in list to execute when we've gotten everything without errors.
-// read only version of that list to be able to verify everything is okay before running.
 // property file
 // ignores property (.DS_Store)
 // proper object
@@ -27,7 +25,7 @@ import org.codehaus.groovy.runtime.InvokerHelper
 
 public class MvnLinks {
 //public class MvnLinks extends Script {
-
+    
     def static String REPO_HOME
     def static String REPO_DIR
 
@@ -117,53 +115,55 @@ public class MvnLinks {
         // settings.xml for VERSION_M2_REPO
         MvnLinks.createProjectVersionSettingsXml()
 
+        MvnLinks.printCommands()
+//        MvnLinks.executeCommands()
+
     }
 
     static void recreateVersionM2Repo() {
         println("recreateVersionM2Repo " + MvnLinks.VERSION_M2_REPO)
         MvnLinks.commands.add("rm -rf " + MvnLinks.VERSION_M2_REPO)
-        ("mkdir -p " + MvnLinks.VERSION_M2_REPO).execute()
-        ("touch " + MvnLinks.VERSION_M2_REPO + "/" + MvnLinks.PROJECT + "." + MvnLinks.PVERSION + ".version.repo").execute()    
+        MvnLinks.commands.add("mkdir -p " + MvnLinks.VERSION_M2_REPO)
+        MvnLinks.commands.add("touch " + MvnLinks.VERSION_M2_REPO + "/" + MvnLinks.PROJECT + "." + MvnLinks.PVERSION + ".version.repo")
     }
-
 
     static void createVersionM2RepoLinks() {
         println("createVersionM2RepoLinks " + MvnLinks.PROJECT_REPO + "/" + MvnLinks.PVERSION)
-        ("mkdir -p " + MvnLinks.PROJECT_REPO + "/" + MvnLinks.PVERSION).execute()
-        ("touch " + MvnLinks.PROJECT_REPO + "/" + MvnLinks.PVERSION + "/" + MvnLinks.PROJECT + "." + MvnLinks.PVERSION + ".project.repo").execute()
+        MvnLinks.commands.add("mkdir -p " + MvnLinks.PROJECT_REPO + "/" + MvnLinks.PVERSION)
+        MvnLinks.commands.add("touch " + MvnLinks.PROJECT_REPO + "/" + MvnLinks.PVERSION + "/" + MvnLinks.PROJECT + "." + MvnLinks.PVERSION + ".project.repo")
         new File(MvnLinks.REPO_DIR).eachFile() { file->  
             def dirBase = ("basename " + file.getName()).execute().getText().trim()
             def command = "ln -s " + MvnLinks.REPO_DIR + "/" + dirBase + " " + MvnLinks.VERSION_M2_REPO + "/" + dirBase
             println(command)
-            (command).execute();
+            MvnLinks.commands.add(command)
         }
     }
 
     static void createParentLinks(String parentPackage) {
-        ("rm -rf " + MvnLinks.VERSION_M2_REPO + "/" + parentPackage).execute()
-        ("mkdir " + MvnLinks.VERSION_M2_REPO + "/" + parentPackage).execute()
-        println("REPO_DIR: " + MvnLinks.REPO_DIR + "    parentPackage: " + parentPackage);
+        println("createParentLinks: " + MvnLinks.REPO_DIR + "/" + parentPackage);
+        MvnLinks.commands.add("rm -rf " + MvnLinks.VERSION_M2_REPO + "/" + parentPackage)
+        MvnLinks.commands.add("mkdir " + MvnLinks.VERSION_M2_REPO + "/" + parentPackage)
         new File(MvnLinks.REPO_DIR + "/" + parentPackage).eachFile() { file->  
             def fileBase = ("basename " + file.getName()).execute().getText().trim()
             def String command = "ln -s " + MvnLinks.REPO_DIR + "/" + parentPackage + "/" + fileBase + " " + MvnLinks.VERSION_M2_REPO + "/" + parentPackage + "/" + fileBase
             println(command)
-            (command).execute()
+            MvnLinks.commands.add(command)
         }  
     }
 
     static void createLeafLink(String versionRepoLeaf) {
-        ("rm -rf " + versionRepoLeaf).execute()
+        MvnLinks.commands.add("rm -rf " + versionRepoLeaf)
         def leafPackageLinkCommand = "ln -s " + MvnLinks.PROJECT_REPO + "/" + MvnLinks.PVERSION + " " + versionRepoLeaf;
         println(leafPackageLinkCommand)
-        (leafPackageLinkCommand).execute()    
+        MvnLinks.commands.add(leafPackageLinkCommand)  
     }
 
     static void lockRepoLeaf(String leaf) {
         def String enabledFile = leaf + ".MvnLinks.enabled"
         if (! new File(enabledFile).exists()) {
-            ("rm -rf " + leaf).execute()
-            ("sudo touch " + leaf).execute()
-            ("sudo touch " + leaf + ".MvnLinks.enabled").execute()    
+            MvnLinks.commands.add("rm -rf " + leaf)
+            MvnLinks.commands.add("sudo touch " + leaf)
+            MvnLinks.commands.add("sudo touch " + leaf + ".MvnLinks.enabled")  
         }
     }
 
@@ -176,6 +176,20 @@ public class MvnLinks {
             def sedout = (command).execute().getText()
             println(sedout)        
         }
-    } 
+    }
+
+
+
+    static void executeCommands() {
+        for (String command: MvnLinks.commands) {
+            command.execute()
+        }
+    }
+
+    static void printCommands() {
+        for (String command: MvnLinks.commands) {
+            println(command)
+        }
+    }     
 }
 
