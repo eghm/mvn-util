@@ -21,11 +21,14 @@ Created symlinks:
 // ignores property (.DS_Store)
 // proper object
 */
-import org.codehaus.groovy.runtime.InvokerHelper
+import java.util.logging.Logger
+import java.util.logging.Level
 
 public class MvnLinks {
 //public class MvnLinks extends Script {
-    
+
+    def static Logger LOGGER = Logger.getLogger("")
+
     def static String REPO_HOME
     def static String REPO_DIR
 
@@ -41,6 +44,8 @@ public class MvnLinks {
     def static List commands = new LinkedList()
 
     public static void main(String[] args) {
+        LOGGER.setLevel(Level.INFO)
+
         // mvn default of REPO_HOME would be ~/.m2
         MvnLinks.REPO_HOME = System.getProperty("mvn.repo.home", "~/.m2")
         if (MvnLinks.REPO_HOME.startsWith("~")) {
@@ -85,7 +90,7 @@ public class MvnLinks {
             System.exit(1)
         }
 
-        println("Creating mvn Links for " + MvnLinks.PVERSION)
+        LOGGER.info("Creating mvn Links for " + MvnLinks.PVERSION)
 
         //if (!new File(PROJECT_REPO).exists()) {
         //    println(PROJECT_REPO + " doesn't exist skipping MvnLinks.sh")
@@ -121,32 +126,32 @@ public class MvnLinks {
     }
 
     static void recreateVersionM2Repo() {
-        println("recreateVersionM2Repo " + MvnLinks.VERSION_M2_REPO)
+        LOGGER.info("recreateVersionM2Repo " + MvnLinks.VERSION_M2_REPO)
         MvnLinks.commands.add("rm -rf " + MvnLinks.VERSION_M2_REPO)
         MvnLinks.commands.add("mkdir -p " + MvnLinks.VERSION_M2_REPO)
         MvnLinks.commands.add("touch " + MvnLinks.VERSION_M2_REPO + "/" + MvnLinks.PROJECT + "." + MvnLinks.PVERSION + ".version.repo")
     }
 
     static void createVersionM2RepoLinks() {
-        println("createVersionM2RepoLinks " + MvnLinks.PROJECT_REPO + "/" + MvnLinks.PVERSION)
+        LOGGER.info("createVersionM2RepoLinks " + MvnLinks.PROJECT_REPO + "/" + MvnLinks.PVERSION)
         MvnLinks.commands.add("mkdir -p " + MvnLinks.PROJECT_REPO + "/" + MvnLinks.PVERSION)
         MvnLinks.commands.add("touch " + MvnLinks.PROJECT_REPO + "/" + MvnLinks.PVERSION + "/" + MvnLinks.PROJECT + "." + MvnLinks.PVERSION + ".project.repo")
         new File(MvnLinks.REPO_DIR).eachFile() { file->  
             def dirBase = ("basename " + file.getName()).execute().getText().trim()
             def command = "ln -s " + MvnLinks.REPO_DIR + "/" + dirBase + " " + MvnLinks.VERSION_M2_REPO + "/" + dirBase
-            println(command)
+            LOGGER.fine(command)
             MvnLinks.commands.add(command)
         }
     }
 
     static void createParentLinks(String parentPackage) {
-        println("createParentLinks: " + MvnLinks.REPO_DIR + "/" + parentPackage);
+        LOGGER.info("createParentLinks: " + MvnLinks.REPO_DIR + "/" + parentPackage);
         MvnLinks.commands.add("rm -rf " + MvnLinks.VERSION_M2_REPO + "/" + parentPackage)
         MvnLinks.commands.add("mkdir " + MvnLinks.VERSION_M2_REPO + "/" + parentPackage)
         new File(MvnLinks.REPO_DIR + "/" + parentPackage).eachFile() { file->  
             def fileBase = ("basename " + file.getName()).execute().getText().trim()
             def String command = "ln -s " + MvnLinks.REPO_DIR + "/" + parentPackage + "/" + fileBase + " " + MvnLinks.VERSION_M2_REPO + "/" + parentPackage + "/" + fileBase
-            println(command)
+            LOGGER.fine(command)
             MvnLinks.commands.add(command)
         }  
     }
@@ -154,7 +159,7 @@ public class MvnLinks {
     static void createLeafLink(String versionRepoLeaf) {
         MvnLinks.commands.add("rm -rf " + versionRepoLeaf)
         def leafPackageLinkCommand = "ln -s " + MvnLinks.PROJECT_REPO + "/" + MvnLinks.PVERSION + " " + versionRepoLeaf;
-        println(leafPackageLinkCommand)
+        LOGGER.fine(leafPackageLinkCommand)
         MvnLinks.commands.add(leafPackageLinkCommand)  
     }
 
@@ -172,13 +177,11 @@ public class MvnLinks {
             println("env MVN_UTIL_HOME not set settings xml will not be created")
         } else {
             def command = "sed \"s|M2_REPO|" + MvnLinks.VERSION_M2_REPO + "|g\" " + System.getProperty("MVN_UTIL_HOME") + "/etc/settings.xml > ~/.m2/settings-" + MvnLinks.PROJECT + "-" + MvnLinks.PVERSION + ".xml"
-            println(command)
+            LOGGER.info(command)
             def sedout = (command).execute().getText()
-            println(sedout)        
+            LOGGER.info(sedout)        
         }
     }
-
-
 
     static void executeCommands() {
         for (String command: MvnLinks.commands) {
