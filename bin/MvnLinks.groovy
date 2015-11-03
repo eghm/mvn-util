@@ -18,7 +18,6 @@ Created symlinks:
 
 //TODO:
 // property file
-// ignores property (.DS_Store)
 // proper object
 */
 import java.util.logging.Logger
@@ -44,39 +43,13 @@ public class MvnLinks {
     def static List commands = new LinkedList()
 
     public static void main(String[] args) {
-        LOGGER.setLevel(Level.INFO)
-
-        // mvn default of REPO_HOME would be ~/.m2
-        MvnLinks.REPO_HOME = System.getProperty("mvn.repo.home", "~/.m2")
-        if (MvnLinks.REPO_HOME.startsWith("~")) {
-            MvnLinks.REPO_HOME = System.getProperty("user.home") + MvnLinks.REPO_HOME.substring(1, MvnLinks.REPO_HOME.length())
-        }
-
-        // mvn default of REPO_HOME would be ~/.m2/repository
-        MvnLinks.REPO_DIR = MvnLinks.REPO_HOME + "/" + System.getProperty("mvn.repository.dir", "repository")
-
-        MvnLinks.PROJECT = args[0]
-        MvnLinks.PVERSION = args[1]
-
-        // where the mvn REPO_DIR/project.path deliverables have been copied
-        MvnLinks.PROJECT_REPO = MvnLinks.REPO_HOME + "/" + MvnLinks.PROJECT
-
-        // The dir that will be used as m2/repository for the project-version
-        MvnLinks.VERSION_M2_REPO = MvnLinks.PROJECT_REPO + "/m2/" + MvnLinks.PVERSION
-
-        // Usage
-        if (args.length < 3) {
-            println("Usage: [-Dmvn.repo.home=/j/m2] [-Dmvn.repository.dir=r] <project> <version> <package.one>")
-            System.exit(1)
-        }
+        MvnLinks.configure(args)
 
         // often com, org, net
         def String PACKAGE_FIRST = args[2].substring(0, args[2].indexOf("."))
 
         // kuali, apache, etc
         def String PACKAGE_SECOND = args[2].substring(PACKAGE_FIRST.length() + 1, args[2].length())
-
-
 
 
         // when setting up for in mvnLinks mode, it seemed the easier way to go was to make the repository
@@ -110,19 +83,46 @@ public class MvnLinks {
 
         // create a link for the PACKAGE_SECOND directory
         // create links for the leaves of this parent
-        def String versionRepoLeaf = MvnLinks.VERSION_M2_REPO + "/" + PACKAGE_FIRST + "/" + PACKAGE_SECOND
-        MvnLinks.createLeafLink(versionRepoLeaf)
+        MvnLinks.createLeafLink(PACKAGE_FIRST + "/" + PACKAGE_SECOND)
 
         // make sure the repo PACKAGE_FIRST/PACKAGE_SECOND cannot be updated!
-        def String repoLeaf = MvnLinks.REPO_DIR + "/" + PACKAGE_FIRST + "/" + PACKAGE_SECOND
+        def String repoLeaf = PACKAGE_FIRST + "/" + PACKAGE_SECOND
         MvnLinks.lockRepoLeaf(repoLeaf)
 
         // settings.xml for VERSION_M2_REPO
-        MvnLinks.createProjectVersionSettingsXml()
+        MvnLinks.createProjectVersionSettingsXml()        
 
         MvnLinks.printCommands()
 //        MvnLinks.executeCommands()
 
+    }
+
+    static configure(String[] args) {
+        LOGGER.setLevel(Level.INFO)
+
+        // mvn default of REPO_HOME would be ~/.m2
+        MvnLinks.REPO_HOME = System.getProperty("mvn.repo.home", "~/.m2")
+        if (MvnLinks.REPO_HOME.startsWith("~")) {
+            MvnLinks.REPO_HOME = System.getProperty("user.home") + MvnLinks.REPO_HOME.substring(1, MvnLinks.REPO_HOME.length())
+        }
+
+        // mvn default of REPO_HOME would be ~/.m2/repository
+        MvnLinks.REPO_DIR = MvnLinks.REPO_HOME + "/" + System.getProperty("mvn.repository.dir", "repository")
+
+        MvnLinks.PROJECT = args[0]
+        MvnLinks.PVERSION = args[1]
+
+        // where the mvn REPO_DIR/project.path deliverables have been copied
+        MvnLinks.PROJECT_REPO = MvnLinks.REPO_HOME + "/" + MvnLinks.PROJECT
+
+        // The dir that will be used as m2/repository for the project-version
+        MvnLinks.VERSION_M2_REPO = MvnLinks.PROJECT_REPO + "/m2/" + MvnLinks.PVERSION
+
+        // Usage
+        if (args.length < 3) {
+            println("Usage: [-Dmvn.repo.home=/j/m2] [-Dmvn.repository.dir=r] <project> <version> <package.one>")
+            System.exit(1)
+        }        
     }
 
     static void recreateVersionM2Repo() {
@@ -157,18 +157,20 @@ public class MvnLinks {
     }
 
     static void createLeafLink(String versionRepoLeaf) {
-        MvnLinks.commands.add("rm -rf " + versionRepoLeaf)
-        def leafPackageLinkCommand = "ln -s " + MvnLinks.PROJECT_REPO + "/" + MvnLinks.PVERSION + " " + versionRepoLeaf;
+        def String fullVersionRepoLeaf = MvnLinks.VERSION_M2_REPO + "/" + versionRepoLeaf
+        MvnLinks.commands.add("rm -rf " + fullVersionRepoLeaf)
+        def leafPackageLinkCommand = "ln -s " + MvnLinks.PROJECT_REPO + "/" + MvnLinks.PVERSION + " " + fullVersionRepoLeaf;
         LOGGER.fine(leafPackageLinkCommand)
         MvnLinks.commands.add(leafPackageLinkCommand)  
     }
 
     static void lockRepoLeaf(String leaf) {
-        def String enabledFile = leaf + ".MvnLinks.enabled"
+        def String fullLeaf = MvnLinks.REPO_DIR + "/" + leaf
+        def String enabledFile = fullLeaf + ".MvnLinks.enabled"
         if (! new File(enabledFile).exists()) {
-            MvnLinks.commands.add("rm -rf " + leaf)
-            MvnLinks.commands.add("sudo touch " + leaf)
-            MvnLinks.commands.add("sudo touch " + leaf + ".MvnLinks.enabled")  
+            MvnLinks.commands.add("rm -rf " + fullLeaf)
+            MvnLinks.commands.add("sudo touch " + fullLeaf)
+            MvnLinks.commands.add("sudo touch " + fullLeaf + ".MvnLinks.enabled")  
         }
     }
 
@@ -177,21 +179,25 @@ public class MvnLinks {
             println("env MVN_UTIL_HOME not set settings xml will not be created")
         } else {
             def command = "sed \"s|M2_REPO|" + MvnLinks.VERSION_M2_REPO + "|g\" " + System.getProperty("MVN_UTIL_HOME") + "/etc/settings.xml > ~/.m2/settings-" + MvnLinks.PROJECT + "-" + MvnLinks.PVERSION + ".xml"
+            commands.add(command)
             LOGGER.info(command)
-            def sedout = (command).execute().getText()
-            LOGGER.info(sedout)        
         }
     }
 
     static void executeCommands() {
         for (String command: MvnLinks.commands) {
-            command.execute()
+            if (!command.contains(".DS_Store")) {
+                command.execute()
+            }
         }
     }
 
     static void printCommands() {
+        println("\nCommands that would be executed:")
         for (String command: MvnLinks.commands) {
-            println(command)
+            if (!command.contains(".DS_Store")) {
+                println(command)
+            }
         }
     }     
 }
