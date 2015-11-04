@@ -1,7 +1,7 @@
 /**
 Symlink a localRepository project version duplicate of a maven repository.
 
--Dmvn.repo.home=/j/m2 -Dmvn.repository.dir=r project 1111 package.one
+-Dmvn.repo.home=/j/m2 -Dmvn.repository.dir=r project version one.package
 
 Existing directories:
 /j/m2 					 # aka ~/.m2
@@ -12,11 +12,16 @@ Created directories:
 /j/m2/project/m2/version # m2 for your project version's localRepository as defined in ~/.m2/settings-project-version.xml 
 
 Created symlinks:
-/j/m2/project/m2/1111/package/one -> /j/m2/project/1111/package/one
-/j/m2/project/m2/1111/package -> /j/m2/r/project/1111/package
-/j/m2/project/m2/1111 -> /j/m2/r
+/j/m2/project/m2/version/one/package -> /j/m2/project/version/one/package
+/j/m2/project/m2/version/one -> /j/m2/r/project/version/one
+/j/m2/project/m2/version -> /j/m2/r
 
 //TODO:
+// handle packages longer than 2 directories
+// Update groovy to generate settings-project-version.xml sans sed.
+// Support multiple packages. 
+// Convert existing standalone repo to mvnLinks (give a list of packages).
+// Do above in a non destructive way so it can be run to move and link packages downloaded in a mvnLinks repo (i.e things in org if there is a link in the second part of the linked packages)
 // property file
 // proper object
 */
@@ -24,8 +29,9 @@ import java.util.logging.Logger
 import java.util.logging.Level
 
 public class MvnLinks {
-//public class MvnLinks extends Script {
 
+//    def static Level LOGGER_LEVEL = Level.INFO
+    def static Level LOGGER_LEVEL = Level.FINE
     def static Logger LOGGER = Logger.getLogger("")
 
     def static String REPO_HOME
@@ -42,22 +48,24 @@ public class MvnLinks {
 
     def static List commands = new LinkedList()
 
+    def static Map packages = new HashMap();
+
     public static void main(String[] args) {
         MvnLinks.configure(args)
 
-        // often com, org, net
-        def String PACKAGE_FIRST = args[2].substring(0, args[2].indexOf("."))
-
         // kuali, apache, etc
-        def String PACKAGE_SECOND = args[2].substring(PACKAGE_FIRST.length() + 1, args[2].length())
+        def String PACKAGE_LEAF = args[2].substring(args[2].lastIndexOf(".") + 1, args[2].length())
+
+        // often com, org, net
+        def String PACKAGE_PARENT = args[2].substring(0, args[2].length() - PACKAGE_LEAF.length() - 1).replaceAll("\\.", "/")
 
 
         // when setting up for in mvnLinks mode, it seemed the easier way to go was to make the repository
         // directory of the packages being linked to a file so if something goes not as expected there will
-        // be an error about PACKAGE_FIRST/PACKAGE_SECOND not being a directory.  This means something is
-        // trying to write to REPO_HOME/PACKAGE_FIRST/PACKAGE_SECOND.  We are expecting the path to be
-        // PROJECT_REPO/PVERSION/PACKAGE_FIRST/PACKAGE_SECOND
-        def String REPO_FIRST_SECOND = MvnLinks.REPO_DIR + "/" + PACKAGE_FIRST + "/" + PACKAGE_SECOND
+        // be an error about PACKAGE_PARENT/PACKAGE_LEAF not being a directory.  This means something is
+        // trying to write to REPO_HOME/PACKAGE_PARENT/PACKAGE_LEAF.  We are expecting the path to be
+        // PROJECT_REPO/PVERSION/PACKAGE_PARENT/PACKAGE_LEAF
+        def String REPO_FIRST_SECOND = MvnLinks.REPO_DIR + "/" + PACKAGE_PARENT + "/" + PACKAGE_LEAF
         if (new File(REPO_FIRST_SECOND).isDirectory()) {
             println(REPO_FIRST_SECOND + " is a directory, not in mvnLinks mode")
             System.exit(1)
@@ -75,30 +83,36 @@ public class MvnLinks {
         // create linked repo for VERSION_M2_REPO
         MvnLinks.createVersionM2RepoLinks()
 
+
+
+
         // For each parent of leaves (with the same parent) 
-        // create linked mvn PACKAGE_FIRST directory so we can control the PACKAGE_SECOND dir
-        // TODO multiple packages will require that all the same PACKAGE_FIRST are done before
-        // any PACKAGE_SECOND are else PACKAGE_SECOND will be deleted by the next PACKAGE_SECOND
-        MvnLinks.createParentLinks(PACKAGE_FIRST)
+        // create linked mvn PACKAGE_PARENT directory so we can control the PACKAGE_LEAF dir
+        // TODO multiple packages will require that all the same PACKAGE_PARENT are done before
+        // any PACKAGE_LEAF are else PACKAGE_LEAF will be deleted by the next PACKAGE_LEAF
+        MvnLinks.createParentLinks(PACKAGE_PARENT)
 
-        // create a link for the PACKAGE_SECOND directory
+        // create a link for the PACKAGE_LEAF directory
         // create links for the leaves of this parent
-        MvnLinks.createLeafLink(PACKAGE_FIRST + "/" + PACKAGE_SECOND)
+        MvnLinks.createLeafLink(PACKAGE_PARENT + "/" + PACKAGE_LEAF)
 
-        // make sure the repo PACKAGE_FIRST/PACKAGE_SECOND cannot be updated!
-        def String repoLeaf = PACKAGE_FIRST + "/" + PACKAGE_SECOND
+        // make sure the repo PACKAGE_PARENT/PACKAGE_LEAF cannot be updated!
+        def String repoLeaf = PACKAGE_PARENT + "/" + PACKAGE_LEAF
         MvnLinks.lockRepoLeaf(repoLeaf)
+
+
+
 
         // settings.xml for VERSION_M2_REPO
         MvnLinks.createProjectVersionSettingsXml()        
 
         MvnLinks.printCommands()
-//        MvnLinks.executeCommands()
+        MvnLinks.executeCommands()
 
     }
 
     static configure(String[] args) {
-        LOGGER.setLevel(Level.INFO)
+        LOGGER.setLevel(MvnLinks.LOGGER_LEVEL)
 
         // mvn default of REPO_HOME would be ~/.m2
         MvnLinks.REPO_HOME = System.getProperty("mvn.repo.home", "~/.m2")
@@ -120,7 +134,7 @@ public class MvnLinks {
 
         // Usage
         if (args.length < 3) {
-            println("Usage: [-Dmvn.repo.home=/j/m2] [-Dmvn.repository.dir=r] <project> <version> <package.one>")
+            println("Usage: [-Dmvn.repo.home=/j/m2] [-Dmvn.repository.dir=r] <project> <version> <one.package>")
             System.exit(1)
         }        
     }
@@ -187,6 +201,7 @@ public class MvnLinks {
     static void executeCommands() {
         for (String command: MvnLinks.commands) {
             if (!command.contains(".DS_Store")) {
+                LOGGER.fine(command)
                 command.execute()
             }
         }
