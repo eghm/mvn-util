@@ -1,7 +1,7 @@
 /**
 Symlink a localRepository project version duplicate of a maven repository.
 
--Dmvn.repo.home=/j/m2 -Dmvn.repository.dir=r project version one.package
+-Dmvn.repo.home=/j/m2 -Dmvn.repository.dir=r project version one.package [second.package]
 
 Existing directories:
 /j/m2 					 # aka ~/.m2
@@ -15,11 +15,14 @@ Created symlinks:
 /j/m2/project/m2/version/one/package -> /j/m2/project/version/one/package
 /j/m2/project/m2/version/one -> /j/m2/r/project/version/one
 /j/m2/project/m2/version -> /j/m2/r
+/j/m2/project/m2/version/one/package -> /j/m2/project/version/second/package
+/j/m2/project/m2/version/one -> /j/m2/r/project/version/second
+/j/m2/project/m2/version -> /j/m2/r
 
 //TODO:
+// Handle package.one package.two
+// Update groovy to generate settings-project-version.xml
 // handle packages longer than 2 directories
-// Update groovy to generate settings-project-version.xml sans sed.
-// Support multiple packages. 
 // Convert existing standalone repo to mvnLinks (give a list of packages).
 // Do above in a non destructive way so it can be run to move and link packages downloaded in a mvnLinks repo (i.e things in org if there is a link in the second part of the linked packages)
 // property file
@@ -30,6 +33,7 @@ import java.util.logging.Level
 
 public class MvnLinks {
 
+	def static String USAGE = "Usage: [-Dmvn.repo.home=/j/m2] [-Dmvn.repository.dir=r] <project> <version> <one.package> [<second package>]"
 //    def static Level LOGGER_LEVEL = Level.INFO
     def static Level LOGGER_LEVEL = Level.FINE
     def static Logger LOGGER = Logger.getLogger("")
@@ -53,24 +57,6 @@ public class MvnLinks {
     public static void main(String[] args) {
         MvnLinks.configure(args)
 
-        // kuali, apache, etc
-        def String PACKAGE_LEAF = args[2].substring(args[2].lastIndexOf(".") + 1, args[2].length())
-
-        // often com, org, net
-        def String PACKAGE_PARENT = args[2].substring(0, args[2].length() - PACKAGE_LEAF.length() - 1).replaceAll("\\.", "/")
-
-
-        // when setting up for in mvnLinks mode, it seemed the easier way to go was to make the repository
-        // directory of the packages being linked to a file so if something goes not as expected there will
-        // be an error about PACKAGE_PARENT/PACKAGE_LEAF not being a directory.  This means something is
-        // trying to write to REPO_HOME/PACKAGE_PARENT/PACKAGE_LEAF.  We are expecting the path to be
-        // PROJECT_REPO/PVERSION/PACKAGE_PARENT/PACKAGE_LEAF
-        def String REPO_FIRST_SECOND = MvnLinks.REPO_DIR + "/" + PACKAGE_PARENT + "/" + PACKAGE_LEAF
-        if (new File(REPO_FIRST_SECOND).isDirectory()) {
-            println(REPO_FIRST_SECOND + " is a directory, not in mvnLinks mode")
-            System.exit(1)
-        }
-
         LOGGER.info("Creating mvn Links for " + MvnLinks.PVERSION)
 
         //if (!new File(PROJECT_REPO).exists()) {
@@ -85,21 +71,27 @@ public class MvnLinks {
 
 
 
+        for (int i = 2; i < args.length; i++) {
+        	// kuali, apache, etc
+	        def String PACKAGE_LEAF = args[i].substring(args[i].lastIndexOf(".") + 1, args[i].length())
 
-        // For each parent of leaves (with the same parent) 
-        // create linked mvn PACKAGE_PARENT directory so we can control the PACKAGE_LEAF dir
-        // TODO multiple packages will require that all the same PACKAGE_PARENT are done before
-        // any PACKAGE_LEAF are else PACKAGE_LEAF will be deleted by the next PACKAGE_LEAF
-        MvnLinks.createParentLinks(PACKAGE_PARENT)
+        	// com, org, net, edu
+        	def String PACKAGE_PARENT = args[i].substring(0, args[i].length() - PACKAGE_LEAF.length() - 1).replaceAll("\\.", "/")
 
-        // create a link for the PACKAGE_LEAF directory
-        // create links for the leaves of this parent
-        MvnLinks.createLeafLink(PACKAGE_PARENT + "/" + PACKAGE_LEAF)
+	        // when setting up for in mvnLinks mode, it seemed the easier way to go was to make the repository
+	        // directory of the packages being linked to a file so if something goes not as expected there will
+	        // be an error about PACKAGE_PARENT/PACKAGE_LEAF not being a directory.  This means something is
+	        // trying to write to REPO_HOME/PACKAGE_PARENT/PACKAGE_LEAF.  We are expecting the path to be
+	        // PROJECT_REPO/PVERSION/PACKAGE_PARENT/PACKAGE_LEAF
+	        def String REPO_FIRST_SECOND = MvnLinks.REPO_DIR + "/" + PACKAGE_PARENT + "/" + PACKAGE_LEAF
+	        if (new File(REPO_FIRST_SECOND).isDirectory()) {
+	            println(REPO_FIRST_SECOND + " is a directory, not in mvnLinks mode.  Please manually delete it, sudo touch it, and rerun.")
+	            System.exit(1) // exit to avoid incomplete creation
+	        } else {
+		        MvnLinks.createPackage(PACKAGE_PARENT, PACKAGE_LEAF)        		        	
+	        }
 
-        // make sure the repo PACKAGE_PARENT/PACKAGE_LEAF cannot be updated!
-        def String repoLeaf = PACKAGE_PARENT + "/" + PACKAGE_LEAF
-        MvnLinks.lockRepoLeaf(repoLeaf)
-
+        }
 
 
 
@@ -134,7 +126,7 @@ public class MvnLinks {
 
         // Usage
         if (args.length < 3) {
-            println("Usage: [-Dmvn.repo.home=/j/m2] [-Dmvn.repository.dir=r] <project> <version> <one.package>")
+            println(USAGE)
             System.exit(1)
         }        
     }
@@ -158,6 +150,23 @@ public class MvnLinks {
         }
     }
 
+    static void createPackage(String parentPackage, String packageLeaf) {
+        // For each parent of leaves (with the same parent) 
+        // create linked mvn parentPackage directory so we can control the packageLeaf dir
+        // TODO multiple packages will require that all the same parentPackage are done before
+        // any packageLeaf are else packageLeaf will be deleted by the next packageLeaf
+        MvnLinks.createParentLinks(parentPackage)
+
+        // create a link for the packageLeaf directory
+        // create links for the leaves of this parent
+        MvnLinks.createLeafLink(parentPackage + "/" + packageLeaf)
+
+        // make sure the repo parentPackage/packageLeaf cannot be updated!
+        def String repoLeaf = parentPackage + "/" + packageLeaf
+
+        MvnLinks.lockRepoLeaf(repoLeaf)
+    }
+
     static void createParentLinks(String parentPackage) {
         LOGGER.info("createParentLinks: " + MvnLinks.REPO_DIR + "/" + parentPackage);
         MvnLinks.commands.add("rm -rf " + MvnLinks.VERSION_M2_REPO + "/" + parentPackage)
@@ -173,7 +182,11 @@ public class MvnLinks {
     static void createLeafLink(String versionRepoLeaf) {
         def String fullVersionRepoLeaf = MvnLinks.VERSION_M2_REPO + "/" + versionRepoLeaf
         MvnLinks.commands.add("rm -rf " + fullVersionRepoLeaf)
-        def leafPackageLinkCommand = "ln -s " + MvnLinks.PROJECT_REPO + "/" + MvnLinks.PVERSION + " " + fullVersionRepoLeaf;
+        def String versionRepoLeafLeaf = versionRepoLeaf.substring(versionRepoLeaf.lastIndexOf("/") + 1, versionRepoLeaf.length())
+        def String projectLeafPackageRepo = MvnLinks.PROJECT_REPO + "/" + MvnLinks.PVERSION + "/" + versionRepoLeafLeaf
+        MvnLinks.commands.add("mkdir -p " + projectLeafPackageRepo)
+        MvnLinks.commands.add("touch " + projectLeafPackageRepo + "/" + versionRepoLeafLeaf + "." + MvnLinks.PVERSION + ".package")
+        def leafPackageLinkCommand = "ln -s " + projectLeafPackageRepo + " " + fullVersionRepoLeaf;
         LOGGER.fine(leafPackageLinkCommand)
         MvnLinks.commands.add(leafPackageLinkCommand)  
     }
